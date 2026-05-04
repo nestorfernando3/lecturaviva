@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import LabLayout from './layouts/LabLayout'
 import TeacherDashboard from './pages/TeacherDashboard'
@@ -11,7 +11,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter basename="/lecturaviva">
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route
@@ -24,7 +24,7 @@ function App() {
         />
         <Route path="/dashboard" element={<TeacherDashboard />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 
