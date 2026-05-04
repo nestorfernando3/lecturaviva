@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Users, Activity, BookOpen, Download, BarChart3, Zap, TrendingUp } from 'lucide-react'
+import { Users, Activity, BookOpen, Download, BarChart3, Zap, TrendingUp, Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -36,6 +36,12 @@ export default function TeacherDashboard() {
   const [progressData, setProgressData] = useState<ProgressData[]>([])
   const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  
+  // New session form state
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [newCode, setNewCode] = useState('')
+  const [newTitle, setNewTitle] = useState('')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     checkAuth()
@@ -146,6 +152,42 @@ export default function TeacherDashboard() {
     fetchSessions()
   }
 
+  const createSession = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newCode.trim() || !newTitle.trim()) return
+    if (newCode.length !== 4) {
+      alert('El código debe tener exactamente 4 caracteres')
+      return
+    }
+
+    setCreating(true)
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert({
+          code: newCode.toUpperCase(),
+          mission_title: newTitle.trim(),
+          is_active: true,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setSessions([data, ...sessions])
+      setSelectedSession(data.id)
+      setShowCreateForm(false)
+      setNewCode('')
+      setNewTitle('')
+      alert(`¡Sesión creada! Código: ${data.code}`)
+    } catch (err) {
+      console.error('Error creating session:', err)
+      alert('Error al crear sesión. El código podría ya existir.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const exportToPDF = () => {
     const doc = new jsPDF()
     doc.setFontSize(20)
@@ -253,21 +295,77 @@ export default function TeacherDashboard() {
       </header>
 
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Session Selector */}
-        <div className="mb-6">
-          <label className="text-sm font-medium text-ink mb-2 block">Sesión Activa</label>
-          <select
-            value={selectedSession}
-            onChange={(e) => setSelectedSession(e.target.value)}
-            className="bg-white border border-paper-dark rounded-xl px-4 py-2 text-ink focus:border-verification outline-none"
+        {/* Session Selector & Create */}
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <label className="text-sm font-medium text-ink mb-2 block">Sesión Activa</label>
+            <select
+              value={selectedSession}
+              onChange={(e) => setSelectedSession(e.target.value)}
+              className="bg-white border border-paper-dark rounded-xl px-4 py-2 text-ink focus:border-verification outline-none"
+            >
+              {sessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {session.code} - {session.mission_title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="flex items-center gap-2 bg-verification text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-verification/90 transition-colors"
           >
-            {sessions.map((session) => (
-              <option key={session.id} value={session.id}>
-                {session.code} - {session.mission_title}
-              </option>
-            ))}
-          </select>
+            {showCreateForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showCreateForm ? 'Cancelar' : 'Nueva Sesión'}
+          </button>
         </div>
+
+        {/* Create Session Form */}
+        {showCreateForm && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-6 border border-verification/30 shadow-lg mb-6"
+          >
+            <h3 className="font-serif text-lg font-semibold text-ink mb-4">
+              Crear Nueva Misión
+            </h3>
+            <form onSubmit={createSession} className="flex gap-4 items-end">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-ink mb-1 block">
+                  Código (4 letras)
+                </label>
+                <input
+                  type="text"
+                  value={newCode}
+                  onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+                  placeholder="Ej: X7K9"
+                  maxLength={4}
+                  className="w-full px-4 py-2 rounded-xl border-2 border-paper-dark bg-paper/50 text-ink placeholder:text-ink/30 focus:border-verification outline-none uppercase tracking-widest font-bold"
+                />
+              </div>
+              <div className="flex-[2]">
+                <label className="text-sm font-medium text-ink mb-1 block">
+                  Título de la Misión
+                </label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Ej: Análisis de Argumentos"
+                  className="w-full px-4 py-2 rounded-xl border-2 border-paper-dark bg-paper/50 text-ink placeholder:text-ink/30 focus:border-verification outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={creating || !newCode.trim() || !newTitle.trim()}
+                className="bg-ink text-paper px-6 py-2 rounded-xl font-medium hover:bg-ink/90 disabled:opacity-50 transition-colors"
+              >
+                {creating ? 'Creando...' : 'Crear'}
+              </button>
+            </form>
+          </motion.div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
