@@ -1,10 +1,10 @@
 const CACHE_NAME = 'lecturaviva-v1'
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png',
 ]
 
 // Install event - cache static assets
@@ -53,7 +53,7 @@ self.addEventListener('fetch', (event) => {
     }).catch(() => {
       // Fallback for offline
       if (event.request.mode === 'navigate') {
-        return caches.match('/')
+        return caches.match('./')
       }
     })
   )
