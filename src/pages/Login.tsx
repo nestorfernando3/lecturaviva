@@ -50,9 +50,11 @@ export default function Login() {
 
   const handleNicknameSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation()
+    
     if (nickname.trim().length < 2) {
       setError('Tu apodo debe tener al menos 2 caracteres')
-      return
+      return false
     }
 
     setLoading(true)
@@ -69,7 +71,7 @@ export default function Login() {
       if (!session) {
         setError('Sesión no encontrada')
         setLoading(false)
-        return
+        return false
       }
 
       // Crear estudiante
@@ -87,7 +89,7 @@ export default function Login() {
       if (studentError || !student) {
         setError('Error al crear tu perfil. Intenta de nuevo.')
         setLoading(false)
-        return
+        return false
       }
 
       // Guardar en store
@@ -104,8 +106,10 @@ export default function Login() {
 
       // Redirigir al laboratorio usando React Router
       navigate('/lab')
+      return false
     } catch (err) {
       setError('Error de conexión. Intenta de nuevo.')
+      return false
     } finally {
       setLoading(false)
     }
