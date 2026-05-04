@@ -1,0 +1,22 @@
+{
+  "name": "LecturaViva - Laboratorio de Lectura Crítica",
+  "short_name": "LecturaViva",
+  "description": "Laboratorio virtual de lectura crítica y análisis semiótico",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f3ea",
+  "theme_color": "#25231f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
