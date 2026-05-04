@@ -1,0 +1,1 @@
+import{a as e}from"./chunk-DZNXM-SG.js";import{_ as t,g as n,m as r,t as i}from"./TeacherDashboard-BvmblrR2.js";var a=e(t(),1),o=n(),s=r();(0,o.createRoot)(document.getElementById(`root`)).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(i,{})}));

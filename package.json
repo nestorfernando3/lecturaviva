@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:docs": "npm run build && rm -rf docs && cp -r dist docs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "gh-pages -d dist",
-    "predeploy": "npm run build"
+    "deploy": "npm run build:docs && git add docs/ && git commit -m 'deploy: update github pages' && git push origin main",
+    "predeploy": "echo 'Run npm run deploy to build and push to GitHub Pages'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

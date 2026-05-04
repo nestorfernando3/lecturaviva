@@ -7,6 +7,9 @@ node_modules/
 dist/
 dist-ssr/
 
+# GitHub Pages source (docs/ is intentionally tracked)
+# docs/ <-- we WANT to commit this for GitHub Pages
+
 # Environment
 .env
 .env.local
