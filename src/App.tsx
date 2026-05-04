@@ -11,7 +11,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/lecturaviva">
       <Routes>
         <Route path="/" element={<Login />} />
         <Route
