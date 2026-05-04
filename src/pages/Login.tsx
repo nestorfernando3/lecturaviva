@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, ArrowRight, Sparkles } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -10,6 +11,7 @@ export default function Login() {
   const [step, setStep] = useState<'code' | 'nickname'>('code')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const navigate = useNavigate()
   
   const setStudent = useSessionStore((state) => state.setStudent)
 
@@ -100,8 +102,8 @@ export default function Login() {
           ai_feedback: [],
         })
 
-      // Redirigir al laboratorio (usaremos navegación simple por ahora)
-      window.location.href = '/lab'
+      // Redirigir al laboratorio usando React Router
+      navigate('/lab')
     } catch (err) {
       setError('Error de conexión. Intenta de nuevo.')
     } finally {

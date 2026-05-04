@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { BookOpen, LogOut } from 'lucide-react'
 import { useSessionStore } from '../store/useSessionStore'
@@ -24,12 +25,13 @@ export default function LabLayout() {
   const [selectedText, setSelectedText] = useState('')
   const { nickname, xp, logout } = useSessionStore()
   const isAuthenticated = useSessionStore((state) => state.isAuthenticated)
+  const navigate = useNavigate()
   
   useEffect(() => {
     if (!isAuthenticated) {
-      window.location.href = '/'
+      navigate('/')
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, navigate])
 
   const handleTextSelect = (text: string) => {
     setSelectedText(text)
@@ -43,7 +45,7 @@ export default function LabLayout() {
 
   const handleLogout = () => {
     logout()
-    window.location.href = '/'
+    navigate('/')
   }
 
   if (!isAuthenticated) return null
