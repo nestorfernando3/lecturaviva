@@ -49,9 +49,18 @@ alter table students enable row level security;
 alter table reading_texts enable row level security;
 alter table student_progress enable row level security;
 
--- Política para sessions (lectura pública para estudiantes)
+-- Política para sessions (lectura pública para estudiantes, gestión por docentes)
 create policy "Sessions are viewable by everyone" on sessions
   for select using (true);
+
+create policy "Teachers can create sessions" on sessions
+  for insert with check (auth.uid() = teacher_id);
+
+create policy "Teachers can update own sessions" on sessions
+  for update using (auth.uid() = teacher_id);
+
+create policy "Teachers can delete own sessions" on sessions
+  for delete using (auth.uid() = teacher_id);
 
 -- Política para students (solo insertar propio)
 create policy "Students can insert themselves" on students
@@ -94,6 +103,6 @@ La tesis que aquí se defiende es que la IA representa lo que Bruno Latour denom
 No obstante, esta reconfiguración no es neutral. Existe una dimensión política fundamental: ¿quién controla los datos de entrenamiento? ¿Quién define los objetivos de optimización? La respuesta a estas preguntas determinará si la IA amplifica o mitiga las desigualdades estructurales existentes.',
  'advanced', gen_random_uuid());
 
--- Crear una sesión de ejemplo para testing
-insert into sessions (code, mission_title, is_active) values
-('A4B2', 'Misión: Análisis de IA', true);
+-- Nota: Para crear sesiones, los docentes deben autenticarse primero.
+-- La sesión de ejemplo se creará a través del dashboard docente.
+-- Si necesitas una sesión de prueba, regístrate como docente y créala desde el dashboard.

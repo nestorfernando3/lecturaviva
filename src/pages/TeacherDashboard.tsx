@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Users, Activity, BookOpen, Download, BarChart3, Zap, TrendingUp, Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -35,7 +35,6 @@ export default function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([])
   const [progressData, setProgressData] = useState<ProgressData[]>([])
   const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   
   // New session form state
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -44,7 +43,7 @@ export default function TeacherDashboard() {
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    checkAuth()
+    fetchSessions().then(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -54,16 +53,6 @@ export default function TeacherDashboard() {
       subscribeToRealtime()
     }
   }, [selectedSession])
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      setIsAuthenticated(true)
-      fetchSessions()
-    } else {
-      setLoading(false)
-    }
-  }
 
   const fetchSessions = async () => {
     try {
@@ -75,27 +64,16 @@ export default function TeacherDashboard() {
       if (error) throw error
       setSessions(data || [])
       if (data && data.length > 0) {
-        setSelectedSession(data[0].id)
+        setSelectedSession(prev => prev || data[0].id)
       }
     } catch (err) {
       console.error('Error fetching sessions:', err)
-      // Datos de demo
-      setSessions([{ id: 'demo', code: 'A4B2', mission_title: 'Misión: Análisis de IA', is_active: true }])
-      setSelectedSession('demo')
-    } finally {
-      setLoading(false)
+      setSessions([])
     }
   }
 
-  const fetchStudents = async () => {
-    if (!selectedSession || selectedSession === 'demo') {
-      setStudents([
-        { id: '1', nickname: 'Ana', xp: 150, streak: 3, created_at: new Date().toISOString() },
-        { id: '2', nickname: 'Carlos', xp: 210, streak: 5, created_at: new Date().toISOString() },
-        { id: '3', nickname: 'María', xp: 85, streak: 1, created_at: new Date().toISOString() },
-      ])
-      return
-    }
+  const fetchStudents = useCallback(async () => {
+    if (!selectedSession) return
 
     try {
       const { data, error } = await supabase
@@ -109,17 +87,10 @@ export default function TeacherDashboard() {
     } catch (err) {
       console.error('Error fetching students:', err)
     }
-  }
+  }, [selectedSession])
 
-  const fetchProgress = async () => {
-    if (!selectedSession || selectedSession === 'demo') {
-      setProgressData([
-        { student_id: '1', gnosis_pre: 3, gnosis_post: 4, evidences_collected: [{}, {}], ai_feedback: [{}], final_text: 'Texto final' },
-        { student_id: '2', gnosis_pre: 4, gnosis_post: 5, evidences_collected: [{}, {}, {}], ai_feedback: [{}, {}], final_text: 'Texto final' },
-        { student_id: '3', gnosis_pre: 2, gnosis_post: 3, evidences_collected: [{}], ai_feedback: [], final_text: null },
-      ])
-      return
-    }
+  const fetchProgress = useCallback(async () => {
+    if (!selectedSession || students.length === 0) return
 
     try {
       const { data, error } = await supabase
@@ -132,7 +103,7 @@ export default function TeacherDashboard() {
     } catch (err) {
       console.error('Error fetching progress:', err)
     }
-  }
+  }, [selectedSession, students])
 
   const subscribeToRealtime = () => {
     const channel = supabase
@@ -143,13 +114,6 @@ export default function TeacherDashboard() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }
-
-  const handleLogin = async () => {
-    // Para demo, simplemente mostramos datos
-    setIsAuthenticated(true)
-    setLoading(false)
-    fetchSessions()
   }
 
   const createSession = async (e: React.FormEvent) => {
@@ -180,9 +144,13 @@ export default function TeacherDashboard() {
       setNewCode('')
       setNewTitle('')
       alert(`¡Sesión creada! Código: ${data.code}`)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating session:', err)
-      alert('Error al crear sesión. El código podría ya existir.')
+      if (err.message?.includes('duplicate') || err.message?.includes('unique')) {
+        alert('Ese código ya existe. Intenta con otro código.')
+      } else {
+        alert('Error al crear sesión. Intenta de nuevo.')
+      }
     } finally {
       setCreating(false)
     }
@@ -195,8 +163,8 @@ export default function TeacherDashboard() {
     
     const session = sessions.find(s => s.id === selectedSession)
     doc.setFontSize(12)
-    doc.text(`Sesión: ${session?.mission_title || 'Demo'}`, 14, 32)
-    doc.text(`Código: ${session?.code || 'A4B2'}`, 14, 40)
+    doc.text(`Sesión: ${session?.mission_title || 'Sin sesión'}`, 14, 32)
+    doc.text(`Código: ${session?.code || 'N/A'}`, 14, 40)
     doc.text(`Estudiantes: ${students.length}`, 14, 48)
 
     const tableData = students.map(s => {
@@ -216,7 +184,7 @@ export default function TeacherDashboard() {
       startY: 55,
     })
 
-    doc.save(`reporte-lecturaviva-${session?.code || 'demo'}.pdf`)
+    doc.save(`reporte-lecturaviva-${session?.code || 'reporte'}.pdf`)
   }
 
   const getCompetencyScore = (studentId: string) => {
@@ -230,6 +198,7 @@ export default function TeacherDashboard() {
     return { evidence, feedback, completion }
   }
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center">
@@ -242,30 +211,7 @@ export default function TeacherDashboard() {
     )
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <div className="bg-white rounded-3xl p-8 shadow-lg border border-paper-dark max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-ink rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <BookOpen className="w-8 h-8 text-paper" />
-          </div>
-          <h1 className="font-serif text-2xl font-semibold text-ink mb-2">
-            Dashboard Docente
-          </h1>
-          <p className="text-ink/60 mb-6">
-            Accede al panel de control de tus sesiones de lectura
-          </p>
-          <button
-            onClick={handleLogin}
-            className="w-full bg-ink text-paper py-3 rounded-xl font-medium hover:bg-ink/90 transition-colors"
-          >
-            Acceder (Demo)
-          </button>
-        </div>
-      </div>
-    )
-  }
-
+  // Dashboard
   const totalXp = students.reduce((sum, s) => sum + s.xp, 0)
   const avgXp = students.length > 0 ? Math.round(totalXp / students.length) : 0
   const activeStudents = students.length
@@ -284,13 +230,16 @@ export default function TeacherDashboard() {
               <p className="text-xs text-ink/50">Dashboard Docente</p>
             </div>
           </div>
-          <button
-            onClick={exportToPDF}
-            className="flex items-center gap-2 bg-ink text-paper px-4 py-2 rounded-xl text-sm font-medium hover:bg-ink/90 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Exportar PDF
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={exportToPDF}
+              disabled={students.length === 0}
+              className="flex items-center gap-2 bg-ink text-paper px-4 py-2 rounded-xl text-sm font-medium hover:bg-ink/90 disabled:opacity-50 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Exportar PDF
+            </button>
+          </div>
         </div>
       </header>
 
@@ -304,6 +253,9 @@ export default function TeacherDashboard() {
               onChange={(e) => setSelectedSession(e.target.value)}
               className="bg-white border border-paper-dark rounded-xl px-4 py-2 text-ink focus:border-verification outline-none"
             >
+              {sessions.length === 0 && (
+                <option value="">No hay sesiones aún</option>
+              )}
               {sessions.map((session) => (
                 <option key={session.id} value={session.id}>
                   {session.code} - {session.mission_title}
@@ -367,127 +319,169 @@ export default function TeacherDashboard() {
           </motion.div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-6 border border-paper-dark">
-            <div className="flex items-center gap-3 mb-2">
-              <Users className="w-5 h-5 text-ink/40" />
-              <span className="text-sm text-ink/60">Estudiantes</span>
-            </div>
-            <p className="text-3xl font-bold text-ink">{activeStudents}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-6 border border-paper-dark">
-            <div className="flex items-center gap-3 mb-2">
-              <Zap className="w-5 h-5 text-evidence" />
-              <span className="text-sm text-ink/60">XP Promedio</span>
-            </div>
-            <p className="text-3xl font-bold text-ink">{avgXp}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-6 border border-paper-dark">
-            <div className="flex items-center gap-3 mb-2">
-              <Activity className="w-5 h-5 text-verification" />
-              <span className="text-sm text-ink/60">Activos Ahora</span>
-            </div>
-            <p className="text-3xl font-bold text-ink">{activeStudents}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-6 border border-paper-dark">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-ink/40" />
-              <span className="text-sm text-ink/60">Completados</span>
-            </div>
-            <p className="text-3xl font-bold text-ink">
-              {progressData.filter(p => p.final_text).length}
+        {/* Empty state when no sessions */}
+        {sessions.length === 0 && !showCreateForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-white rounded-2xl p-12 border border-paper-dark text-center"
+          >
+            <BookOpen className="w-12 h-12 text-ink/20 mx-auto mb-4" />
+            <h3 className="font-serif text-xl font-semibold text-ink mb-2">
+              ¡Bienvenido, docente!
+            </h3>
+            <p className="text-ink/60 mb-6 max-w-md mx-auto">
+              Aún no tienes sesiones creadas. Crea tu primera misión de lectura para que tus estudiantes puedan unirse con un código.
             </p>
-          </div>
-        </div>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="inline-flex items-center gap-2 bg-verification text-white px-6 py-3 rounded-xl font-medium hover:bg-verification/90 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Crear Primera Sesión
+            </button>
+          </motion.div>
+        )}
 
-        {/* Students Table with Heatmap */}
-        <div className="bg-white rounded-2xl border border-paper-dark overflow-hidden">
-          <div className="px-6 py-4 border-b border-paper-dark">
-            <h2 className="font-semibold text-ink flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Progreso por Estudiante
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-paper/50">
-                  <th className="text-left px-6 py-3 text-sm font-medium text-ink/60">Estudiante</th>
-                  <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">XP</th>
-                  <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Evidencias</th>
-                  <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Feedback</th>
-                  <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Finalizado</th>
-                  <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Competencias</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student) => {
-                  const scores = getCompetencyScore(student.id)
-                  return (
-                    <tr key={student.id} className="border-t border-paper-dark hover:bg-paper/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-ink/10 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-ink">
-                              {student.nickname[0].toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="font-medium text-ink">{student.nickname}</span>
-                        </div>
-                      </td>
-                      <td className="text-center px-6 py-4">
-                        <span className="font-semibold text-verification">{student.xp}</span>
-                      </td>
-                      <td className="text-center px-6 py-4 text-ink/70">
-                        {progressData.find(p => p.student_id === student.id)?.evidences_collected?.length || 0}
-                      </td>
-                      <td className="text-center px-6 py-4 text-ink/70">
-                        {progressData.find(p => p.student_id === student.id)?.ai_feedback?.length || 0}
-                      </td>
-                      <td className="text-center px-6 py-4">
-                        {progressData.find(p => p.student_id === student.id)?.final_text ? (
-                          <span className="px-2 py-1 bg-verification/20 text-verification rounded-lg text-xs font-medium">
-                            Sí
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-paper-dark text-ink/40 rounded-lg text-xs">
-                            No
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-2 justify-center">
-                          <div 
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                            style={{ backgroundColor: scores.evidence > 70 ? '#4f8f6f' : scores.evidence > 40 ? '#f3c84b' : '#e5e4e7', color: scores.evidence > 40 ? 'white' : '#25231f' }}
-                            title="Evidencia"
-                          >
-                            E
-                          </div>
-                          <div 
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                            style={{ backgroundColor: scores.feedback > 70 ? '#4f8f6f' : scores.feedback > 40 ? '#f3c84b' : '#e5e4e7', color: scores.feedback > 40 ? 'white' : '#25231f' }}
-                            title="Feedback"
-                          >
-                            F
-                          </div>
-                          <div 
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                            style={{ backgroundColor: scores.completion > 70 ? '#4f8f6f' : scores.completion > 40 ? '#f3c84b' : '#e5e4e7', color: scores.completion > 40 ? 'white' : '#25231f' }}
-                            title="Completitud"
-                          >
-                            C
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Stats - only show when there's a selected session */}
+        {selectedSession && sessions.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-white rounded-2xl p-6 border border-paper-dark">
+                <div className="flex items-center gap-3 mb-2">
+                  <Users className="w-5 h-5 text-ink/40" />
+                  <span className="text-sm text-ink/60">Estudiantes</span>
+                </div>
+                <p className="text-3xl font-bold text-ink">{activeStudents}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-6 border border-paper-dark">
+                <div className="flex items-center gap-3 mb-2">
+                  <Zap className="w-5 h-5 text-evidence" />
+                  <span className="text-sm text-ink/60">XP Promedio</span>
+                </div>
+                <p className="text-3xl font-bold text-ink">{avgXp}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-6 border border-paper-dark">
+                <div className="flex items-center gap-3 mb-2">
+                  <Activity className="w-5 h-5 text-verification" />
+                  <span className="text-sm text-ink/60">Activos Ahora</span>
+                </div>
+                <p className="text-3xl font-bold text-ink">{activeStudents}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-6 border border-paper-dark">
+                <div className="flex items-center gap-3 mb-2">
+                  <TrendingUp className="w-5 h-5 text-ink/40" />
+                  <span className="text-sm text-ink/60">Completados</span>
+                </div>
+                <p className="text-3xl font-bold text-ink">
+                  {progressData.filter(p => p.final_text).length}
+                </p>
+              </div>
+            </div>
+
+            {/* Students Table with Heatmap */}
+            {students.length > 0 && (
+              <div className="bg-white rounded-2xl border border-paper-dark overflow-hidden">
+                <div className="px-6 py-4 border-b border-paper-dark">
+                  <h2 className="font-semibold text-ink flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Progreso por Estudiante
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-paper/50">
+                        <th className="text-left px-6 py-3 text-sm font-medium text-ink/60">Estudiante</th>
+                        <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">XP</th>
+                        <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Evidencias</th>
+                        <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Feedback</th>
+                        <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Finalizado</th>
+                        <th className="text-center px-6 py-3 text-sm font-medium text-ink/60">Competencias</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {students.map((student) => {
+                        const scores = getCompetencyScore(student.id)
+                        return (
+                          <tr key={student.id} className="border-t border-paper-dark hover:bg-paper/30 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-ink/10 rounded-full flex items-center justify-center">
+                                  <span className="text-sm font-medium text-ink">
+                                    {student.nickname[0].toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="font-medium text-ink">{student.nickname}</span>
+                              </div>
+                            </td>
+                            <td className="text-center px-6 py-4">
+                              <span className="font-semibold text-verification">{student.xp}</span>
+                            </td>
+                            <td className="text-center px-6 py-4 text-ink/70">
+                              {progressData.find(p => p.student_id === student.id)?.evidences_collected?.length || 0}
+                            </td>
+                            <td className="text-center px-6 py-4 text-ink/70">
+                              {progressData.find(p => p.student_id === student.id)?.ai_feedback?.length || 0}
+                            </td>
+                            <td className="text-center px-6 py-4">
+                              {progressData.find(p => p.student_id === student.id)?.final_text ? (
+                                <span className="px-2 py-1 bg-verification/20 text-verification rounded-lg text-xs font-medium">
+                                  Sí
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 bg-paper-dark text-ink/40 rounded-lg text-xs">
+                                  No
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-2 justify-center">
+                                <div 
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                                  style={{ backgroundColor: scores.evidence > 70 ? '#4f8f6f' : scores.evidence > 40 ? '#f3c84b' : '#e5e4e7', color: scores.evidence > 40 ? 'white' : '#25231f' }}
+                                  title="Evidencia"
+                                >
+                                  E
+                                </div>
+                                <div 
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+                                  style={{ backgroundColor: scores.feedback > 70 ? '#4f8f6f' : scores.feedback > 40 ? '#f3c84b' : '#e5e4e7', color: scores.feedback > 40 ? 'white' : '#25231f' }}
+                                  title="Feedback"
+                                >
+                                  F
+                                </div>
+                                <div 
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+                                  style={{ backgroundColor: scores.completion > 70 ? '#4f8f6f' : scores.completion > 40 ? '#f3c84b' : '#e5e4e7', color: scores.completion > 40 ? 'white' : '#25231f' }}
+                                  title="Completitud"
+                                >
+                                  C
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {students.length === 0 && (
+              <div className="bg-white rounded-2xl p-12 border border-paper-dark text-center">
+                <Users className="w-12 h-12 text-ink/20 mx-auto mb-4" />
+                <h3 className="font-serif text-lg font-semibold text-ink mb-2">
+                  Sin estudiantes aún
+                </h3>
+                <p className="text-ink/60">
+                  Comparte el código <span className="font-bold text-verification">{sessions.find(s => s.id === selectedSession)?.code}</span> con tus estudiantes para que se unan.
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
