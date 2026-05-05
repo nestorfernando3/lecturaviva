@@ -68,24 +68,37 @@ export default function GuidedWriting() {
         .from('student_progress')
         .upsert({ student_id: studentId, draft_text: fullText })
 
-      // Llamar a Ollama
-      const ollamaUrl = import.meta.env.VITE_OLLAMA_URL || 'http://localhost:11434'
-      const response = await fetch(`${ollamaUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama3.2',
-          prompt: `Eres un tutor de lectura crítica experto. Evalúa el siguiente análisis de un estudiante sobre un texto. No corrijas ortografía ni reescribas el texto. Solo dale 1 sugerencia clara y constructiva para mejorar su argumento (máximo 3 oraciones).\n\nAnálisis del estudiante:\n${fullText}\n\nSugerencia:`,
-          stream: false,
-        }),
-      })
-
+      // Llamar a Gemini
+      const geminiKey = import.meta.env.VITE_GEMINI_API_KEY
       let feedbackText = ''
-      if (response.ok) {
-        const data = await response.json()
-        feedbackText = data.response?.trim() || 'Tu argumento está bien estructurado. Intenta profundizar más en el análisis de las implicaciones.'
-      } else {
-        // Fallback si Ollama no está disponible
+      
+      if (geminiKey) {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `Eres un tutor de lectura crítica experto. Evalúa el siguiente análisis de un estudiante sobre un texto. No corrijas ortografía ni reescribas el texto. Solo dale 1 sugerencia clara y constructiva para mejorar su argumento (máximo 3 oraciones).\n\nAnálisis del estudiante:\n${fullText}\n\nSugerencia:`
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 200,
+              }
+            }),
+          }
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          feedbackText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+        }
+      }
+      
+      if (!feedbackText) {
         feedbackText = generateFallbackFeedback(fullText)
       }
 
